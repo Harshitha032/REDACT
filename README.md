@@ -244,11 +244,27 @@ REDACTIFY/
 │
 └── README.md
 
-🎥 Project Demo
+## 🖼️ Project Screenshots
 
-### 🎬 Demo
+<p align="center">
+  <img src="assets/Screenshot%201.png" alt="REDACTIFY Screenshot 1" width="700">
+</p>
 
-[▶️ Watch the REDACTIFY Demo](assets/demo.mp4)
+<p align="center">
+  <img src="assets/Screenshot%202.png" alt="REDACTIFY Screenshot 2" width="700">
+</p>
+
+<p align="center">
+  <img src="assets/Screenshot%203.png" alt="REDACTIFY Screenshot 3" width="700">
+</p>
+
+<p align="center">
+  <img src="assets/Screenshot%204.png" alt="REDACTIFY Screenshot 4" width="700">
+</p>
+
+<p align="center">
+  <img src="assets/Screenshot%205.png" alt="REDACTIFY Screenshot 5" width="700">
+</p>
 
 📌 Project Highlights
 🔐 Privacy-focused data anonymization
