@@ -262,10 +262,9 @@ REDACTIFY/
 🌐 Web-based interface
 🛡️ Secure temporary file handling
 
-👥 Team Members
+# 👥 Team Members
 
-👩‍💻 Harshitha S
-GitHub: @Harshitha032
-
-👩‍💻 Bavyashree T
-GitHub: @TeammateUsername
+| Team Member | LinkedIn |
+|------------|----------|
+| **Harshitha S** | https://www.linkedin.com/in/harshitha-s-261244413/ |
+| **Bavyashree T** | https://www.linkedin.com/in/bavyashree-t-127374422/ |
