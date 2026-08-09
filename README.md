@@ -245,9 +245,9 @@ REDACTIFY/
 
 🎥 Project Demo
 
+### 🎬 Demo
 
-
-
+[▶️ Watch the REDACTIFY Demo](assets/demo.mp4)
 
 📌 Project Highlights
 🔐 Privacy-focused data anonymization
