@@ -113,6 +113,8 @@ REDACTIFY uses different processing pipelines depending on the type of file uplo
                     │   File Generation   │
                     └─────────────────────┘
 
+
+
 🔄 System Workflow
 
 The following workflow illustrates how REDACTIFY processes uploaded files, detects sensitive information, applies the selected redaction level, and generates the final protected output.
