@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Redactify — Smart Document Redaction</title>
+<style>
+/* ═══════════════════════════════ VARIABLES ═══════════════════════════════ */
+:root{
+  --bg:#0d1117; --s1:#161b22; --s2:#21262d; --border:#30363d;
+  --teal:#39d0d8; --blue:#1f6feb; --green:#2ea043; --purple:#bc8cff;
+  --red:#f85149; --yellow:#e3b341; --text:#e6edf3; --muted:#8b949e;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--s1)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ════════════════════════════════ HEADER ════════════════════════════════ */
+header{
+  background:var(--s1);border-bottom:1px solid var(--border);
+  padding:14px 28px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;
+}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,var(--teal),var(--blue));
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:900;color:#fff;flex-shrink:0;
+}
+.logo-text h1{font-size:1.2rem;font-weight:700}
+.logo-text p{font-size:.72rem;color:var(--muted)}
+.hbadges{display:flex;gap:8px}
+.hbadge{padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:600;border:1px solid}
+.hbadge-g{color:var(--green);border-color:var(--green);background:rgba(46,160,67,.1)}
+.hbadge-b{color:var(--blue);border-color:var(--blue);background:rgba(31,111,235,.1)}
+
+/* ════════════════════════════════ LAYOUT ════════════════════════════════ */
+main{max-width:1100px;margin:0 auto;padding:24px 16px;display:flex;flex-direction:column;gap:18px}
+
+/* ════════════════════════════════ CARD ═════════════════════════════════ */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px}
+.card-title{
+  font-size:.92rem;font-weight:700;margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+.card-title::before{
+  content:'';width:3px;height:16px;border-radius:2px;flex-shrink:0;
+  background:linear-gradient(var(--teal),var(--blue));
+}
+
+/* ═══════════════════════════ UPLOAD ZONE ═══════════════════════════════ */
+.drop-outer{position:relative}
+.drop-label{
+  display:block;border:2px dashed var(--border);border-radius:10px;
+  padding:34px 20px;text-align:center;cursor:pointer;
+  transition:border-color .2s,background .2s;
+}
+.drop-label:hover{border-color:var(--teal);background:rgba(57,208,216,.04)}
+.drop-label.drag-over{border-color:var(--teal);background:rgba(57,208,216,.08)}
+#fileInput{
+  position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;
+}
+.drop-icon{font-size:38px;margin-bottom:8px;display:block}
+.drop-label h3{font-size:.95rem;margin-bottom:4px}
+.drop-label p{color:var(--muted);font-size:.78rem}
+.ftags{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:10px}
+.ftag{padding:2px 9px;border-radius:20px;font-size:.67rem;background:var(--s2);border:1px solid var(--border);color:var(--muted)}
+.file-selected{
+  display:none;margin-top:10px;padding:9px 13px;
+  background:var(--s2);border:1px solid var(--green);border-radius:8px;
+  font-size:.82rem;color:var(--text);
+}
+.file-selected.show{display:flex;align-items:center;gap:8px}
+
+/* ═══════════════════════════ PROGRESS BAR ══════════════════════════════ */
+.prog{display:none;height:3px;background:var(--s2);border-radius:2px;margin-top:8px;overflow:hidden}
+.prog.show{display:block}
+.prog-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--teal),var(--blue));transition:width .25s linear}
+
+/* ═══════════════════════════ LEVEL CARDS ═══════════════════════════════ */
+.level-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:600px){.level-grid{grid-template-columns:1fr}}
+.level-card{
+  border:2px solid var(--border);border-radius:10px;padding:14px;
+  cursor:pointer;transition:border-color .15s,background .15s;display:block;
+  user-select:none;position:relative;
+}
+.lc1.sel{border-color:var(--teal);background:rgba(57,208,216,.07)}
+.lc2.sel{border-color:var(--purple);background:rgba(188,140,255,.07)}
+.lc3.sel{border-color:var(--green);background:rgba(46,160,67,.07)}
+.lv-num{font-size:1.9rem;font-weight:900;line-height:1;margin-bottom:4px}
+.lc1 .lv-num{color:var(--teal)}
+.lc2 .lv-num{color:var(--purple)}
+.lc3 .lv-num{color:var(--green)}
+.lv-name{font-size:.87rem;font-weight:700;margin-bottom:3px}
+.lv-desc{font-size:.75rem;color:var(--muted);line-height:1.45}
+.lv-ex{
+  margin-top:8px;padding:5px 9px;border-radius:5px;
+  font-family:'Courier New',monospace;font-size:.7rem;
+  color:var(--yellow);background:var(--s2);line-height:1.6;
+}
+
+/* ═══════════════════════════ INPUT ═════════════════════════════════════ */
+.inp-label{font-size:.78rem;color:var(--muted);display:block;margin-bottom:5px;margin-top:14px}
+.inp{
+  width:100%;background:var(--s2);border:1px solid var(--border);border-radius:7px;
+  padding:9px 12px;color:var(--text);font-size:.84rem;outline:none;
+  transition:border-color .2s;
+}
+.inp:focus{border-color:var(--teal)}
+
+/* ════════════════════════════ BUTTONS ══════════════════════════════════ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px 18px;border-radius:8px;font-size:.85rem;font-weight:600;
+  cursor:pointer;border:none;transition:opacity .15s,transform .1s;
+  white-space:nowrap;font-family:inherit;
+}
+.btn:hover:not(:disabled){opacity:.82;transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(0)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none !important}
+.btn-teal{background:linear-gradient(135deg,var(--teal),var(--blue));color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-purple{background:var(--purple);color:#111}
+.btn-orange{background:#f0883e;color:#fff}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover:not(:disabled){border-color:var(--teal);color:var(--teal);opacity:1}
+.btn-row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+/* Status line */
+.status-line{
+  margin-top:10px;font-size:.8rem;color:var(--muted);min-height:18px;
+  padding:6px 10px;background:var(--s2);border-radius:6px;border:1px solid var(--border);
+}
+
+/* ════════════════════════════ PANELS ═══════════════════════════════════ */
+.panel{display:none}
+.panel.show{display:block}
+
+/* Stats row */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat-box{
+  background:var(--s2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 16px;text-align:center;min-width:88px;
+}
+.stat-num{font-size:1.5rem;font-weight:800;color:var(--teal)}
+.stat-lbl{font-size:.67rem;color:var(--muted);margin-top:2px;text-transform:uppercase}
+
+/* Entity pills */
+.pill-row{display:flex;flex-wrap:wrap;gap:5px}
+.pill{
+  padding:3px 10px;border-radius:20px;font-size:.71rem;
+  font-weight:600;border:1px solid;
+}
+.p-PERSON     {color:#f78166;border-color:#f78166;background:rgba(247,129,102,.1)}
+.p-EMAIL      {color:var(--teal);border-color:var(--teal);background:rgba(57,208,216,.1)}
+.p-PHONE      {color:var(--purple);border-color:var(--purple);background:rgba(188,140,255,.1)}
+.p-AADHAAR    {color:var(--yellow);border-color:var(--yellow);background:rgba(227,179,65,.1)}
+.p-PAN        {color:#ff9492;border-color:#ff9492;background:rgba(255,148,146,.1)}
+.p-DOB        {color:#7ee787;border-color:#7ee787;background:rgba(126,231,135,.1)}
+.p-LOCATION   {color:#79c0ff;border-color:#79c0ff;background:rgba(121,192,255,.1)}
+.p-CUSTOM     {color:#f0883e;border-color:#f0883e;background:rgba(240,136,62,.1)}
+.p-DEFAULT    {color:var(--muted);border-color:var(--border);background:var(--s2)}
+
+/* Two-column panes */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+.pane-label{font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.text-pane{
+  background:var(--s2);border:1px solid var(--border);border-radius:8px;
+  padding:12px;font-family:'Courier New',monospace;font-size:.78rem;
+  line-height:1.65;min-height:200px;max-height:340px;
+  overflow-y:auto;white-space:pre-wrap;word-break:break-word;
+}
+.text-pane.redacted{color:var(--teal)}
+
+/* Download box */
+.dl-box{
+  margin-top:14px;padding:16px 18px;
+  background:var(--s2);border:1px solid var(--green);border-radius:10px;
+}
+.dl-box h4{font-size:.87rem;font-weight:700;color:var(--green);margin-bottom:10px}
+.dl-note{font-size:.73rem;color:var(--muted);margin-top:8px}
+
+/* Blurred image preview box */
+.blur-box{
+  margin-top:12px;padding:14px 16px;
+  background:var(--s2);border:1px solid var(--teal);border-radius:10px;
+}
+.blur-box h4{font-size:.84rem;font-weight:700;color:var(--teal);margin-bottom:8px}
+
+/* Live textarea */
+#liveInput{
+  width:100%;min-height:100px;resize:vertical;
+  background:var(--s2);border:1px solid var(--border);border-radius:8px;
+  padding:11px 12px;color:var(--text);font-family:'Courier New',monospace;
+  font-size:.8rem;outline:none;transition:border-color .2s;display:block;
+  margin-top:10px;
+}
+#liveInput:focus{border-color:var(--teal)}
+
+/* Security */
+.sec-list{display:flex;flex-direction:column;gap:7px}
+.sec-item{
+  display:flex;align-items:center;gap:9px;padding:9px 12px;
+  background:var(--s2);border:1px solid var(--border);border-radius:7px;font-size:.81rem;
+}
+.ck{color:var(--green);font-size:.9rem}
+
+/* ════════════════════════════ TOAST ════════════════════════════════════ */
+#toast{
+  position:fixed;bottom:20px;right:20px;z-index:9999;
+  background:var(--s1);border:1px solid var(--border);border-radius:9px;
+  padding:11px 16px;font-size:.83rem;max-width:320px;
+  box-shadow:0 6px 24px rgba(0,0,0,.6);
+  opacity:0;transform:translateY(50px);transition:opacity .28s,transform .28s;
+  pointer-events:none;
+}
+#toast.on{opacity:1;transform:translateY(0);pointer-events:auto}
+#toast.t-ok  {border-left:4px solid var(--green)}
+#toast.t-err {border-left:4px solid var(--red)}
+#toast.t-info{border-left:4px solid var(--teal)}
+
+/* Spinner */
+.spin{
+  display:inline-block;width:14px;height:14px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.25);border-top-color:#fff;
+  animation:sp .55s linear infinite;flex-shrink:0;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Highlight */
+mark{background:rgba(57,208,216,.25);color:var(--teal);border-radius:3px;padding:0 2px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">R</div>
+    <div class="logo-text">
+      <h1>Redactify</h1>
+      <p>Smart Document Redaction Tool</p>
+    </div>
+  </div>
+  <div class="hbadges">
+    <span class="hbadge hbadge-g">🔒 Local Only</span>
+    <span class="hbadge hbadge-b">🛡 No Storage</span>
+  </div>
+</header>
+
+<main>
+
+<!-- ══════════════ STEP 1: UPLOAD ══════════════ -->
+<div class="card">
+  <div class="card-title">① Upload Document</div>
+  <input type="file" id="fileInput"
+    accept=".txt,.pdf,.docx,.doc,.png,.jpg,.jpeg,.bmp,.tiff,.mp4,.avi,.mov,.mkv"/>
+  <div class="drop-outer">
+    <label class="drop-label" for="fileInput" id="dropLabel">
+      <span class="drop-icon">📄</span>
+      <h3>Click to Browse or Drag &amp; Drop</h3>
+      <p>Supports Text · PDF · DOCX · Images (OCR + face blur) · Videos (OCR + face blur)</p>
+      <div class="ftags">
+        <span class="ftag">.txt</span><span class="ftag">.pdf</span>
+        <span class="ftag">.docx</span><span class="ftag">.png</span>
+        <span class="ftag">.jpg</span><span class="ftag">.mp4</span>
+        <span class="ftag">.avi</span><span class="ftag">.mov</span>
+      </div>
+    </label>
+  </div>
+  <div class="file-selected" id="fileSelected">
+    <span>📎</span>
+    <span id="fileSelectedName"></span>
+  </div>
+  <div class="prog" id="prog"><div class="prog-fill" id="progFill"></div></div>
+</div>
+
+<!-- ══════════════ STEP 2: LEVEL ══════════════ -->
+<div class="card">
+  <div class="card-title">② Choose Redaction Level</div>
+  <div class="level-grid" id="levelGrid">
+    <div class="level-card lc1 sel" data-level="1">
+      <div class="lv-num">01</div>
+      <div class="lv-name">X-Mask</div>
+      <div class="lv-desc">Each character replaced with X. Length preserved. Structure intact.</div>
+      <div class="lv-ex">HARSHITHA → XXXXXXXXX<br>9876543210 → XXXXXXXXXX<br>bavya@mail.com → XXXXX@XXXX.XXX</div>
+    </div>
+    <div class="level-card lc2" data-level="2">
+      <div class="lv-num">02</div>
+      <div class="lv-name">Label</div>
+      <div class="lv-desc">Replaced with sequential labels. Same entity always gets the same label.</div>
+      <div class="lv-ex">HARSHITHA → Person 1<br>9876543210 → Number 1<br>bavya@mail.com → Email 1</div>
+    </div>
+    <div class="level-card lc3" data-level="3">
+      <div class="lv-num">03</div>
+      <div class="lv-name">Fake Data</div>
+      <div class="lv-desc">Replaced with realistic fake data. Reads naturally — nothing is real.</div>
+      <div class="lv-ex">HARSHITHA → Priya Kumar<br>9876543210 → 8203456789<br>bavya@mail.com → priya42@gmail.com</div>
+    </div>
+  </div>
+  <label class="inp-label" for="customWords">➕ Custom words to also redact (comma-separated)</label>
+  <input class="inp" type="text" id="customWords"
+    placeholder="e.g.  ProjectAlpha, TopSecret, MyCompany"/>
+</div>
+
+<!-- ══════════════ STEP 3: ACTIONS ══════════════ -->
+<div class="card">
+  <div class="card-title">③ Actions</div>
+  <div class="btn-row">
+    <button class="btn btn-teal"  type="button" id="btnDetect">🔍 Detect Entities</button>
+    <button class="btn btn-teal"  type="button" id="btnRedact">✂️ Redact &amp; Download</button>
+    <button class="btn btn-ghost" type="button" id="btnClear">🗑 Clear</button>
+    <button class="btn btn-red"   type="button" id="btnCleanup">🧹 Delete Temp Files</button>
+    <button class="btn btn-ghost" type="button" id="btnSecStatus">🔍 Security Status</button>
+  </div>
+  <div class="status-line" id="statusLine">Ready — upload a file and choose a level.</div>
+</div>
+
+<!-- ══════════════ DETECTION PANEL ══════════════ -->
+<div class="card panel" id="detectPanel">
+  <div class="card-title">🔎 Detected Entities</div>
+  <div class="stats-row" id="detectStats"></div>
+  <div class="pane-label" style="margin-bottom:8px">Entity Types Found</div>
+  <div class="pill-row" id="entityPills"></div>
+  <div style="margin-top:14px">
+    <div class="pane-label">Document Text Preview</div>
+    <div class="text-pane" id="detectPreview"></div>
+  </div>
+</div>
+
+<!-- ══════════════ RESULT PANEL ══════════════ -->
+<div class="card panel" id="resultPanel">
+  <div class="card-title">✅ Redaction Complete</div>
+  <div class="stats-row" id="resultStats"></div>
+  <div class="two-col">
+    <div>
+      <div class="pane-label">Original Text</div>
+      <div class="text-pane" id="origPane"></div>
+    </div>
+    <div>
+      <div class="pane-label">Redacted Text</div>
+      <div class="text-pane redacted" id="redPane"></div>
+    </div>
+  </div>
+
+  <!-- Blurred image section (shown only for image files) -->
+  <div class="blur-box panel" id="blurPanel">
+    <h4>🖼 Face-Blurred Image</h4>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">
+      Detected faces in the uploaded image have been blurred for privacy protection.
+    </p>
+    <div class="btn-row">
+      <button class="btn btn-teal" type="button" id="btnDownloadBlur">⬇ Download Blurred Image</button>
+    </div>
+  </div>
+
+  <div class="dl-box">
+    <h4>⬇ Download Your Redacted File</h4>
+    <div class="btn-row">
+      <button class="btn btn-green"  type="button" id="btnDownload">⬇ Download File</button>
+      <button class="btn btn-ghost"  type="button" id="btnCopyText">📋 Copy Redacted Text</button>
+      <button class="btn btn-orange" type="button" id="btnSaveTxt">💾 Save as .txt</button>
+    </div>
+    <p class="dl-note">
+      💡 <b>Download File</b> fetches from server. If it fails (expired), <b>Save as .txt</b>
+      saves instantly from the browser — no server needed.
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════ LIVE PREVIEW ══════════════ -->
+<div class="card">
+  <div class="card-title">⚡ Live Text Preview</div>
+  <p style="font-size:.8rem;color:var(--muted)">
+    Paste any text below for instant redaction preview using the selected level.
+    Detects names like <b>HARSHITHA</b>, <b>bavyashree</b>, <b>Harshi</b>, <b>harshu</b>, emails, phones, Aadhaar & more.
+  </p>
+  <textarea id="liveInput" placeholder="Paste text here…
+Example:
+  Name: HARSHITHA
+  Nickname: harshi
+  Phone: 9876543210
+  Email: bavyashree@gmail.com
+  Aadhaar: 1234 5678 9012
+  PAN: ABCDE1234F
+  DOB: 15/08/2000"></textarea>
+  <div class="btn-row" style="margin-top:9px">
+    <button class="btn btn-purple" type="button" id="btnLive">▶ Preview Now</button>
+    <button class="btn btn-ghost"  type="button" id="btnLiveClear">✕ Clear</button>
+  </div>
+  <div class="panel" id="livePanel" style="margin-top:14px">
+    <div class="two-col">
+      <div>
+        <div class="pane-label">Original</div>
+        <div class="text-pane" id="liveOrig"></div>
+      </div>
+      <div>
+        <div class="pane-label">Redacted</div>
+        <div class="text-pane redacted" id="liveRed"></div>
+      </div>
+    </div>
+    <div class="pill-row" id="livePills" style="margin-top:10px"></div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn btn-orange" type="button" id="btnSaveLive">💾 Save Live Preview as .txt</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SECURITY ══════════════ -->
+<div class="card">
+  <div class="card-title">🛡 Security &amp; Privacy</div>
+  <div class="sec-list">
+    <div class="sec-item"><span class="ck">✅</span>Files deleted automatically after 15 minutes</div>
+    <div class="sec-item"><span class="ck">✅</span>No permanent storage — temporary folders only</div>
+    <div class="sec-item"><span class="ck">✅</span>Local processing — data never leaves your machine</div>
+    <div class="sec-item"><span class="ck">✅</span>Images &amp; videos: faces blurred with Gaussian blur</div>
+    <div class="sec-item"><span class="ck">✅</span>Session-isolated UUID filenames for every upload</div>
+    <div class="sec-item"><span class="ck">✅</span>Indian names (HARSHITHA, harshi, Bavyashree) detected</div>
+  </div>
+  <p style="margin-top:10px;font-size:.76rem;color:var(--muted)" id="secStatusText"></p>
+</div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ── Config ─────────────────────────────────────────────────────────────── */
+var API = "http://127.0.0.1:5001";
+
+/* ── State ───────────────────────────────────────────────────────────────── */
+var _file        = null;
+var _level       = 1;
+var _redText     = "";      // Full redacted text
+var _dlName      = null;    // Server-side filename
+var _blurName    = null;    // Blurred image filename (for image files)
+var _liveRedText = "";      // Live preview redacted text
+var _progTmr     = null;
+var _liveTmr     = null;
+var _toastTmr    = null;
+
+function G(id){ return document.getElementById(id); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════════════════════════════════ */
+document.addEventListener("DOMContentLoaded", function(){
+
+  /* Level cards */
+  G("levelGrid").addEventListener("click", function(e){
+    var card = e.target.closest(".level-card");
+    if(!card) return;
+    var lv = parseInt(card.getAttribute("data-level"), 10);
+    if(lv) setLevel(lv);
+  });
+
+  /* File input */
+  G("fileInput").addEventListener("change", function(){
+    var f = this.files && this.files[0];
+    if(f) setFile(f);
+  });
+
+  /* Drag and drop */
+  var lbl = G("dropLabel");
+  lbl.addEventListener("dragover",  function(e){ e.preventDefault(); e.stopPropagation(); lbl.classList.add("drag-over"); });
+  lbl.addEventListener("dragleave", function(){  lbl.classList.remove("drag-over"); });
+  lbl.addEventListener("drop",      function(e){
+    e.preventDefault(); e.stopPropagation();
+    lbl.classList.remove("drag-over");
+    var f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) setFile(f);
+  });
+
+  /* Action buttons */
+  G("btnDetect").addEventListener("click",         doDetect);
+  G("btnRedact").addEventListener("click",         doRedact);
+  G("btnClear").addEventListener("click",          doClear);
+  G("btnCleanup").addEventListener("click",        doCleanup);
+  G("btnSecStatus").addEventListener("click",      doSecStatus);
+
+  /* Result panel buttons */
+  G("btnDownload").addEventListener("click",       doDownload);
+  G("btnCopyText").addEventListener("click",       doCopyText);
+  G("btnSaveTxt").addEventListener("click",        doSaveTxt);
+  G("btnDownloadBlur").addEventListener("click",   doDownloadBlur);
+
+  /* Live preview */
+  G("btnLive").addEventListener("click",           doLive);
+  G("btnSaveLive").addEventListener("click",       doSaveLive);
+  G("btnLiveClear").addEventListener("click",      function(){
+    G("liveInput").value = "";
+    _liveRedText = "";
+    hidePanel("livePanel");
+  });
+  G("liveInput").addEventListener("input", function(){
+    clearTimeout(_liveTmr);
+    _liveTmr = setTimeout(doLive, 600);
+  });
+
+  setStatus("Ready — upload a file and choose a level.");
+
+  /* Auto-check backend health */
+  checkBackend();
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BACKEND HEALTH CHECK
+══════════════════════════════════════════════════════════════════════════ */
+function checkBackend(){
+  fetch(API + "/health")
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.status === "ok") toast("✅ Backend connected on port 5001", "ok");
+    })
+    .catch(function(){
+      toast("⚠️ Backend not reachable — run: python app.py", "err");
+      setStatus("⚠️ Backend offline — start Flask: python app.py (port 5001)");
+    });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LEVEL
+══════════════════════════════════════════════════════════════════════════ */
+function setLevel(n){
+  _level = n;
+  document.querySelectorAll(".level-card").forEach(function(c){ c.classList.remove("sel"); });
+  var t = document.querySelector(".level-card[data-level='"+n+"']");
+  if(t) t.classList.add("sel");
+  setStatus("Level "+n+" selected.");
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FILE
+══════════════════════════════════════════════════════════════════════════ */
+function setFile(f){
+  _file = f;
+  G("fileSelected").classList.add("show");
+  G("fileSelectedName").innerHTML =
+    "<b>"+esc(f.name)+"</b>&nbsp;<span style='color:var(--muted)'>"+fmtSize(f.size)+"</span>";
+  setStatus("File ready: "+f.name+" — click Detect or Redact.");
+  toast("📎 "+f.name+" loaded", "info");
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DETECT
+══════════════════════════════════════════════════════════════════════════ */
+async function doDetect(){
+  if(!_file){ toast("Upload a file first.", "err"); return; }
+  var btn = G("btnDetect");
+  setLoading(btn, true, "Detecting…");
+  progShow(true); progAnim(0, 75, 1400);
+  setStatus("Scanning for sensitive data…");
+  try{
+    var fd = new FormData();
+    fd.append("file", _file);
+    var data = await apiFetch("POST", "/api/detect", fd);
+    progAnim(75, 100, 400);
+    showPanel("detectPanel");
+    G("detectStats").innerHTML =
+      mkStat(data.entity_count, "Found") +
+      mkStat((data.file_type||"?").toUpperCase(), "Type");
+    G("entityPills").innerHTML  = mkPills(data.entities || []);
+    G("detectPreview").textContent = data.text_preview || "(no text extracted)";
+    setStatus("✅ "+data.entity_count+" sensitive items found in '"+data.filename+"'");
+    toast("✅ "+data.entity_count+" entities detected.", "ok");
+    G("detectPanel").scrollIntoView({behavior:"smooth",block:"nearest"});
+  }catch(err){
+    setStatus("❌ "+err.message);
+    toast("Error: "+err.message, "err");
+  }finally{
+    setLoading(btn, false, "🔍 Detect Entities");
+    setTimeout(function(){ progShow(false); }, 600);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   REDACT
+══════════════════════════════════════════════════════════════════════════ */
+async function doRedact(){
+  if(!_file){ toast("Upload a file first.", "err"); return; }
+  var btn = G("btnRedact");
+  setLoading(btn, true, "Redacting…");
+  progShow(true); progAnim(0, 80, 2000);
+  setStatus("Redacting at Level "+_level+"…");
+  hidePanel("resultPanel");
+  hidePanel("blurPanel");
+  _blurName = null;
+  try{
+    var fd = new FormData();
+    fd.append("file",            _file);
+    fd.append("level",           String(_level));
+    fd.append("custom_entities", G("customWords").value || "");
+    var data = await apiFetch("POST", "/api/redact", fd);
+    progAnim(80, 100, 400);
+
+    /* Store full text + download name */
+    _dlName  = data.download_name || null;
+    _redText = data.redacted_full || data.redacted_preview || "";
+
+    /* Stats row */
+    var s  = data.stats || {total:0,by_type:{}};
+    var sh = mkStat(s.total,"Redacted") + mkStat("L"+data.level,"Level");
+    Object.keys(s.by_type||{}).forEach(function(t){ sh += mkStat(s.by_type[t], t); });
+    G("resultStats").innerHTML = sh;
+
+    G("origPane").textContent = data.original_preview || "(no preview)";
+    G("redPane").textContent  = data.redacted_preview || "";
+
+    /* Show blurred image download button if backend returned one */
+    if(data.blurred_image){
+      _blurName = data.blurred_image;
+      showPanel("blurPanel");
+    }
+
+    showPanel("resultPanel");
+    setStatus("✅ Done! "+s.total+" items redacted at Level "+data.level+".");
+    toast("✅ "+s.total+" items redacted. Download below.", "ok");
+    setTimeout(function(){ G("resultPanel").scrollIntoView({behavior:"smooth",block:"start"}); }, 80);
+  }catch(err){
+    setStatus("❌ "+err.message);
+    toast("Error: "+err.message, "err");
+  }finally{
+    setLoading(btn, false, "✂️ Redact &amp; Download");
+    setTimeout(function(){ progShow(false); }, 600);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DOWNLOAD — server first, then client-side fallback
+══════════════════════════════════════════════════════════════════════════ */
+async function doDownload(){
+  if(!_dlName && !_redText){
+    toast("Nothing to download — click Redact first.", "err");
+    return;
+  }
+
+  /* Method 1: Fetch the file from the server as a binary blob */
+  if(_dlName){
+    try{
+      toast("⏳ Preparing download from server…", "info");
+      var res = await fetch(API + "/api/download/" + encodeURIComponent(_dlName), {
+        method : "GET",
+        headers: { "Accept": "*/*" },
+        mode   : "cors"
+      });
+      if(res.ok){
+        var blob = await res.blob();
+        if(blob && blob.size > 0){
+          triggerBlobDownload(blob, _dlName);
+          toast("✅ Download started!", "ok");
+          return;
+        }
+      } else {
+        var errData = await res.json().catch(function(){ return {}; });
+        console.warn("[doDownload] Server error:", errData.error || res.status);
+      }
+    }catch(netErr){
+      console.warn("[doDownload] Network error:", netErr.message);
+    }
+  }
+
+  /* Method 2: Client-side blob from stored redacted text (always available) */
+  if(_redText){
+    var fname = _dlName || "redacted_output.txt";
+    // Force .txt extension for client-side save (we have text, not binary)
+    if(!fname.endsWith(".txt")){
+      fname = fname.replace(/\.[^.]+$/, ".txt");
+    }
+    triggerBlobDownload(
+      new Blob([_redText], {type:"text/plain;charset=utf-8"}),
+      fname
+    );
+    toast("✅ Saved locally (server file may have expired).", "ok");
+    return;
+  }
+
+  toast("Nothing to download. Please redact a file first.", "err");
+}
+
+/* Download blurred image */
+async function doDownloadBlur(){
+  if(!_blurName){ toast("No blurred image available.", "err"); return; }
+  try{
+    toast("⏳ Downloading blurred image…", "info");
+    var res = await fetch(API + "/api/download-upload/" + encodeURIComponent(_blurName), {
+      method: "GET", mode: "cors"
+    });
+    if(res.ok){
+      var blob = await res.blob();
+      triggerBlobDownload(blob, "blurred_" + _blurName);
+      toast("✅ Blurred image downloaded!", "ok");
+    } else {
+      toast("Could not download blurred image — may have expired.", "err");
+    }
+  }catch(err){
+    toast("Error: " + err.message, "err");
+  }
+}
+
+/* Helper — create invisible <a> and click to trigger Save As */
+function triggerBlobDownload(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a   = document.createElement("a");
+  a.href        = url;
+  a.download    = filename;
+  a.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
+  document.body.appendChild(a);
+
+  /* Small timeout ensures some browsers register the append before click */
+  setTimeout(function(){
+    a.click();
+    setTimeout(function(){
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 3000);
+  }, 50);
+}
+
+function doCopyText(){
+  if(!_redText){ toast("Nothing to copy — redact first.", "err"); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(_redText)
+      .then(function(){ toast("✅ Copied to clipboard!", "ok"); })
+      .catch(function(){ fallbackCopy(_redText); });
+  } else {
+    fallbackCopy(_redText);
+  }
+}
+
+function fallbackCopy(text){
+  var ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;left:-9999px;top:-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    toast("✅ Copied!", "ok");
+  } catch(e) {
+    toast("Copy failed — use Ctrl+A in the redacted pane.", "err");
+  }
+  document.body.removeChild(ta);
+}
+
+function doSaveTxt(){
+  if(!_redText){ toast("Nothing to save — redact first.", "err"); return; }
+  triggerBlobDownload(
+    new Blob([_redText], {type:"text/plain;charset=utf-8"}),
+    "redacted_output.txt"
+  );
+  toast("✅ Saved as redacted_output.txt!", "ok");
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LIVE PREVIEW
+══════════════════════════════════════════════════════════════════════════ */
+async function doLive(){
+  var txt = G("liveInput").value.trim();
+  if(!txt){ hidePanel("livePanel"); _liveRedText=""; return; }
+  try{
+    var res = await fetch(API+"/api/live-preview",{
+      method :"POST",
+      headers:{"Content-Type":"application/json"},
+      body   : JSON.stringify({text:txt, level:_level}),
+      mode   : "cors"
+    });
+    if(!res.ok){
+      var errJson = await res.json().catch(function(){ return {}; });
+      throw new Error(errJson.error || "HTTP "+res.status);
+    }
+    var data = await res.json();
+    if(data.error) throw new Error(data.error);
+    _liveRedText = data.redacted || "";
+    G("liveOrig").textContent = data.original || "";
+    G("liveRed").textContent  = _liveRedText;
+    G("livePills").innerHTML  = mkPills(data.entities || []);
+    showPanel("livePanel");
+  }catch(err){
+    console.warn("[doLive]", err.message);
+    setStatus("Live preview error: "+err.message);
+  }
+}
+
+function doSaveLive(){
+  if(!_liveRedText){ toast("Nothing to save — run live preview first.", "err"); return; }
+  triggerBlobDownload(
+    new Blob([_liveRedText], {type:"text/plain;charset=utf-8"}),
+    "live_redacted.txt"
+  );
+  toast("✅ Saved live preview as live_redacted.txt!", "ok");
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SECURITY
+══════════════════════════════════════════════════════════════════════════ */
+async function doSecStatus(){
+  try{
+    var res  = await fetch(API+"/api/security-status", {mode:"cors"});
+    var data = await res.json();
+    G("secStatusText").textContent =
+      "Temp files: "+data.total_temp_files+
+      "  |  Size: "+data.total_size_kb+" KB"+
+      "  |  Auto-delete: "+data.auto_delete_minutes+" min";
+    toast("Security status updated.", "info");
+  }catch(err){
+    G("secStatusText").textContent = "⚠️ Cannot reach backend — is Flask running on port 5001?";
+    toast("Backend offline.", "err");
+  }
+}
+
+async function doCleanup(){
+  try{
+    var res  = await fetch(API+"/api/cleanup",{method:"POST",mode:"cors"});
+    var data = await res.json();
+    toast("🧹 "+data.message, "ok");
+  }catch(err){
+    toast("Cleanup failed: "+err.message, "err");
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CLEAR
+══════════════════════════════════════════════════════════════════════════ */
+function doClear(){
+  _file     = null;
+  _dlName   = null;
+  _redText  = "";
+  _blurName = null;
+  _liveRedText = "";
+  G("fileInput").value   = "";
+  G("fileSelected").classList.remove("show");
+  G("customWords").value = "";
+  G("liveInput").value   = "";
+  G("secStatusText").textContent = "";
+  hidePanel("detectPanel");
+  hidePanel("resultPanel");
+  hidePanel("blurPanel");
+  hidePanel("livePanel");
+  progShow(false);
+  setStatus("Cleared. Upload a new file to start.");
+  toast("Cleared.", "info");
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NETWORK
+══════════════════════════════════════════════════════════════════════════ */
+async function apiFetch(method, path, body){
+  var res;
+  try{
+    var opts = {method:method, mode:"cors"};
+    if(body) opts.body = body;
+    res = await fetch(API+path, opts);
+  }catch(netErr){
+    throw new Error(
+      "Cannot reach Flask backend at "+API+". "+
+      "Make sure you ran: python app.py  (in the backend folder). "+
+      "Error: "+netErr.message
+    );
+  }
+  var data;
+  try{ data = await res.json(); }
+  catch(_){ throw new Error("Server returned non-JSON response (status "+res.status+")."); }
+  if(!res.ok || data.error) throw new Error(data.error || "Server error "+res.status);
+  return data;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════════════════════════════════════ */
+function showPanel(id){ var el=G(id); if(el) el.classList.add("show"); }
+function hidePanel(id){ var el=G(id); if(el) el.classList.remove("show"); }
+function setStatus(msg){ G("statusLine").textContent = msg; }
+
+function setLoading(btn, on, label){
+  if(on){
+    btn._orig    = btn.innerHTML;
+    btn.innerHTML= '<span class="spin"></span> '+label;
+    btn.disabled = true;
+  }else{
+    btn.innerHTML= label || btn._orig || "";
+    btn.disabled = false;
+  }
+}
+
+function progShow(on){
+  var p = G("prog");
+  if(on){ p.classList.add("show"); }
+  else  { p.classList.remove("show"); G("progFill").style.width="0%"; clearInterval(_progTmr); }
+}
+function progAnim(from, to, ms){
+  var fill = G("progFill");
+  fill.style.width = from+"%";
+  clearInterval(_progTmr);
+  var step = (to-from)/(ms/25);
+  var cur  = from;
+  _progTmr = setInterval(function(){
+    cur = Math.min(cur+step, to);
+    fill.style.width = cur+"%";
+    if(cur>=to) clearInterval(_progTmr);
+  }, 25);
+}
+
+var PILL_CLS = {
+  "PERSON":"p-PERSON","EMAIL":"p-EMAIL","PHONE":"p-PHONE",
+  "AADHAAR":"p-AADHAAR","PAN":"p-PAN","DOB":"p-DOB",
+  "LOCATION":"p-LOCATION","CUSTOM":"p-CUSTOM"
+};
+function mkPills(entities){
+  var by = {};
+  entities.forEach(function(e){ by[e.label] = (by[e.label]||0)+1; });
+  var html = "";
+  Object.keys(by).forEach(function(lbl){
+    var cls = PILL_CLS[lbl] || "p-DEFAULT";
+    html += '<span class="pill '+cls+'">'+esc(lbl)+' × '+by[lbl]+'</span>';
+  });
+  return html || '<span style="font-size:.78rem;color:var(--muted)">No sensitive entities detected</span>';
+}
+function mkStat(val, label){
+  return '<div class="stat-box">'+
+    '<div class="stat-num">'+esc(String(val))+'</div>'+
+    '<div class="stat-lbl">'+esc(label)+'</div>'+
+    '</div>';
+}
+function esc(s){
+  return String(s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function fmtSize(b){
+  if(b<1024) return b+" B";
+  if(b<1048576) return (b/1024).toFixed(1)+" KB";
+  return (b/1048576).toFixed(1)+" MB";
+}
+function toast(msg, type){
+  var el = G("toast");
+  el.textContent = msg;
+  el.className   = "on t-"+(type||"info");
+  clearTimeout(_toastTmr);
+  _toastTmr = setTimeout(function(){ el.className=""; }, 4500);
+}
+</script>
+</body>
+</html>

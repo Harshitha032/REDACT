@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+.venv/
+
+# VS Code
+.vscode/
+
+# Uploaded/generated files
+uploads/*
+redacted/*
+temp/*
+
+# Environment variables
+.env
